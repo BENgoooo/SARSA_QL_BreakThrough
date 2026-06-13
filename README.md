@@ -6,9 +6,12 @@ SARSA（On-Policy）与 Q-Learning（Off-Policy）的策略差异。
 
 ## 在线任务书
 
-[点击查看完整渲染页面](https://bengoooo.github.io/SARSA_QL_BreakThrough/)
+[点击进入可上下滑动、可切换版本的任务书展示页面](https://bengoooo.github.io/SARSA_QL_BreakThrough/)
 
 [![暗影潜行项目任务书预览](docs/preview.png)](https://bengoooo.github.io/SARSA_QL_BreakThrough/)
+
+展示页面收录了智谱原版与修订版、Xiaomi MiMo 和 Qwen 生成的任务书。
+页面顶部可以切换版本，正文区域支持鼠标滚轮和触屏上下滑动。
 
 当前仓库已经实现：
 
@@ -30,7 +33,8 @@ SARSA、训练指标可视化及完整算法对比仍在后续开发范围内。
 ├── envs/
 │   └── breakthrough_env.py   # 网格环境、守卫移动和奖励逻辑
 ├── docs/
-│   ├── index.html            # GitHub Pages 项目规划页面
+│   ├── index.html            # 可滚动、可切换版本的 Pages 查看器
+│   ├── prompts/              # 各模型生成的任务书 HTML
 │   └── preview.png           # README 页面预览图
 ├── check_agent.py            # 智能体功能检查
 ├── check_env.py              # 环境功能检查

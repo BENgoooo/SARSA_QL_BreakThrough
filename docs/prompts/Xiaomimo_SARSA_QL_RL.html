@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>强化学习项目计划书 — 贪吃蛇：SARSA vs Q-Learning</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&family=JetBrains+Mono:wght@400;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0e11;
+    --surface: #141a22;
+    --surface-2: #1b2330;
+    --accent: #00e676;
+    --accent-dim: #00c85333;
+    --accent-orange: #ff9100;
+    --accent-orange-dim: #ff910033;
+    --text-primary: #e8eaed;
+    --text-secondary: #9aa0a6;
+    --text-muted: #5f6368;
+    --border: #2a3140;
+    --danger: #ff5252;
+    --info: #448aff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: 'Noto Sans SC', sans-serif;
+    font-weight: 400;
+    line-height: 1.8;
+    min-height: 100vh;
+  }
+
+  /* ===== HERO HEADER ===== */
+  .hero {
+    position: relative;
+    width: 100%;
+    min-height: 480px;
+    background: linear-gradient(135deg, #0b0e11 0%, #0d1f12 30%, #112b1a 50%, #0d1f12 70%, #0b0e11 100%);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 60px 40px;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 25% 40%, rgba(0,230,118,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 75% 60%, rgba(255,145,0,0.06) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,230,118,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,230,118,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: gridPulse 8s ease-in-out infinite;
+  }
+
+  @keyframes gridPulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  /* Snake illustration via CSS */
+  .snake-art {
+    position: relative;
+    width: 360px;
+    height: 180px;
+    margin-bottom: 30px;
+  }
+
+  .snake-body {
+    position: absolute;
+    background: var(--accent);
+    border-radius: 4px;
+    box-shadow: 0 0 12px rgba(0,230,118,0.4);
+  }
+
+  .snake-body.head {
+    width: 24px; height: 24px;
+    background: #00ff88;
+    border-radius: 6px;
+    box-shadow: 0 0 20px rgba(0,255,136,0.6);
+    animation: headGlow 1.5s ease-in-out infinite;
+  }
+
+  @keyframes headGlow {
+    0%, 100% { box-shadow: 0 0 20px rgba(0,255,136,0.6); }
+    50% { box-shadow: 0 0 35px rgba(0,255,136,0.9); }
+  }
+
+  .snake-body.segment {
+    width: 20px; height: 20px;
+    border-radius: 3px;
+  }
+
+  .snake-body.tail {
+    width: 16px; height: 16px;
+    border-radius: 3px;
+    background: #00994d;
+  }
+
+  .food-item {
+    position: absolute;
+    width: 18px; height: 18px;
+    background: var(--accent-orange);
+    border-radius: 50%;
+    box-shadow: 0 0 14px rgba(255,145,0,0.6);
+    animation: foodPulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes foodPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.8; }
+  }
+
+  .hero-title {
+    position: relative;
+    z-index: 2;
+    font-family: 'Noto Serif SC', serif;
+    font-weight: 900;
+    font-size: 2.8rem;
+    letter-spacing: 0.04em;
+    text-align: center;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, var(--accent) 0%, #69f0ae 50%, var(--accent-orange) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-subtitle {
+    position: relative;
+    z-index: 2;
+    font-size: 1.05rem;
+    color: var(--text-secondary);
+    text-align: center;
+    max-width: 600px;
+    letter-spacing: 0.02em;
+  }
+
+  .hero-badge {
+    position: relative;
+    z-index: 2;
+    display: inline-block;
+    margin-top: 24px;
+    padding: 6px 20px;
+    border: 1px solid var(--accent);
+    border-radius: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* ===== MAIN CONTENT ===== */
+  .container {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 60px 40px 100px;
+  }
+
+  /* TOC */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px 36px;
+    margin-bottom: 60px;
+  }
+
+  .toc-title {
+    font-family: 'Noto Serif SC', serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--accent);
+    margin-bottom: 16px;
+    letter-spacing: 0.06em;
+  }
+
+  .toc ol {
+    list-style: none;
+    counter-reset: toc;
+  }
+
+  .toc li {
+    counter-increment: toc;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .toc li:last-child { border-bottom: none; }
+
+  .toc li::before {
+    content: "0" counter(toc);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-right: 14px;
+  }
+
+  .toc a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .toc a:hover { color: var(--accent); }
+
+  /* Sections */
+  .section {
+    margin-bottom: 56px;
+  }
+
+  .section-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  .section-title {
+    font-family: 'Noto Serif SC', serif;
+    font-weight: 700;
+    font-size: 1.7rem;
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    position: relative;
+    padding-bottom: 12px;
+  }
+
+  .section-title::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 48px;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  p {
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    font-size: 0.95rem;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px 28px;
+    margin-bottom: 16px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 24px rgba(0,230,118,0.06);
+  }
+
+  .card-title {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .card-title .icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+
+  .icon-green { background: var(--accent-dim); color: var(--accent); }
+  .icon-orange { background: var(--accent-orange-dim); color: var(--accent-orange); }
+  .icon-blue { background: rgba(68,138,255,0.15); color: var(--info); }
+  .icon-red { background: rgba(255,82,82,0.15); color: var(--danger); }
+
+  .card p, .card li {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.75;
+  }
+
+  /* Lists */
+  ul, ol {
+    padding-left: 20px;
+    margin-bottom: 16px;
+  }
+
+  li {
+    color: var(--text-secondary);
+    font-size: 0.93rem;
+    margin-bottom: 6px;
+    line-height: 1.7;
+  }
+
+  li strong { color: var(--text-primary); }
+
+  /* Grid layout */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  /* State diagram */
+  .state-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 28px;
+    margin: 20px 0;
+    text-align: center;
+  }
+
+  .state-grid {
+    display: inline-grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    text-align: left;
+  }
+
+  .state-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--surface-2);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .state-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--accent);
+    white-space: nowrap;
+    padding-top: 2px;
+    min-width: 65px;
+  }
+
+  .state-desc {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  /* Algorithm comparison table */
+  .algo-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 20px 0;
+    font-size: 0.88rem;
+  }
+
+  .algo-table th {
+    background: var(--surface-2);
+    color: var(--text-primary);
+    font-weight: 700;
+    padding: 14px 18px;
+    text-align: left;
+    border-bottom: 2px solid var(--accent);
+  }
+
+  .algo-table th:first-child { border-radius: 8px 0 0 0; }
+  .algo-table th:last-child { border-radius: 0 8px 0 0; }
+
+  .algo-table td {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
+    vertical-align: top;
+  }
+
+  .algo-table tr:last-child td { border-bottom: none; }
+
+  .algo-table tr:hover td {
+    background: rgba(0,230,118,0.02);
+  }
+
+  /* Formula blocks */
+  .formula-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    padding: 20px 24px;
+    margin: 16px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.88rem;
+    color: var(--accent);
+    overflow-x: auto;
+    line-height: 2;
+  }
+
+  .formula-block .comment {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+
+  /* Timeline */
+  .timeline {
+    position: relative;
+    padding-left: 32px;
+    margin: 20px 0;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+
+  .timeline-item {
+    position: relative;
+    margin-bottom: 24px;
+  }
+
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -28px;
+    top: 6px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 8px rgba(0,230,118,0.4);
+  }
+
+  .timeline-item .phase {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .timeline-item .phase-title {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+
+  .timeline-item p {
+    font-size: 0.88rem;
+    margin-bottom: 4px;
+  }
+
+  /* Metric cards */
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .metric-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .metric-value.green { color: var(--accent); }
+  .metric-value.orange { color: var(--accent-orange); }
+  .metric-value.blue { color: var(--info); }
+
+  .metric-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+  }
+
+  /* Highlight box */
+  .highlight-box {
+    background: rgba(0,230,118,0.05);
+    border: 1px solid rgba(0,230,118,0.2);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 16px 0;
+  }
+
+  .highlight-box.orange {
+    background: rgba(255,145,0,0.05);
+    border-color: rgba(255,145,0,0.2);
+  }
+
+  .highlight-box.blue {
+    background: rgba(68,138,255,0.05);
+    border-color: rgba(68,138,255,0.2);
+  }
+
+  .highlight-box p {
+    margin-bottom: 8px;
+  }
+
+  .highlight-box p:last-child { margin-bottom: 0; }
+
+  /* Code block */
+  .code-block {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: #c9d1d9;
+    overflow-x: auto;
+    line-height: 1.8;
+    white-space: pre;
+  }
+
+  .code-block .keyword { color: #ff7b72; }
+  .code-block .string { color: #a5d6ff; }
+  .code-block .number { color: #79c0ff; }
+  .code-block .func { color: #d2a8ff; }
+  .code-block .comment { color: #8b949e; }
+
+  /* Env illustration */
+  .env-grid {
+    display: inline-grid;
+    grid-template-columns: repeat(10, 28px);
+    gap: 2px;
+    margin: 16px 0;
+  }
+
+  .env-cell {
+    width: 28px;
+    height: 28px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .env-cell.empty { background: var(--surface-2); color: transparent; }
+  .env-cell.wall { background: #37474f; }
+  .env-cell.snake { background: var(--accent); color: #0b0e11; font-weight: 700; }
+  .env-cell.head { background: #00ff88; color: #0b0e11; font-weight: 700; box-shadow: 0 0 8px rgba(0,255,136,0.5); }
+  .env-cell.food { background: var(--accent-orange); color: #0b0e11; font-weight: 700; box-shadow: 0 0 8px rgba(255,145,0,0.5); }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 40px;
+    border-top: 1px solid var(--border);
+    margin-top: 60px;
+  }
+
+  .footer p {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    .hero-title { font-size: 1.8rem; }
+    .hero { min-height: 360px; padding: 40px 20px; }
+    .container { padding: 40px 20px 60px; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .snake-art { transform: scale(0.75); }
+    .algo-table { font-size: 0.78rem; }
+    .algo-table th, .algo-table td { padding: 8px 10px; }
+  }
+
+  /* Print */
+  @media print {
+    body { background: #fff; color: #222; }
+    .hero { background: #f5f5f5 !important; min-height: 300px; }
+    .hero-title { -webkit-text-fill-color: #00994d; }
+    .card, .toc, .state-diagram, .formula-block, .highlight-box, .metric-card { border-color: #ccc; background: #fafafa; }
+    .section-title::after { background: #00994d; }
+    p, li, td { color: #444; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ====== HERO ====== -->
+<header class="hero">
+  <div class="hero-grid"></div>
+
+  <!-- CSS Snake Illustration -->
+  <div class="snake-art">
+    <div class="food-item" style="left: 260px; top: 40px;"></div>
+    <div class="food-item" style="left: 80px; top: 130px; animation-delay: 0.4s;"></div>
+    <div class="snake-body head" style="left: 160px; top: 90px;"></div>
+    <div class="snake-body segment" style="left: 138px; top: 90px; background: #00cc66;"></div>
+    <div class="snake-body segment" style="left: 116px; top: 90px; background: #00b359;"></div>
+    <div class="snake-body segment" style="left: 116px; top: 112px; background: #00994d;"></div>
+    <div class="snake-body segment" style="left: 116px; top: 134px; background: #008040;"></div>
+    <div class="snake-body segment" style="left: 138px; top: 134px; background: #006633;"></div>
+    <div class="snake-body tail"  style="left: 160px; top: 134px;"></div>
+  </div>
+
+  <h1 class="hero-title">SARSA vs Q-Learning</h1>
+  <p class="hero-subtitle">基于贪吃蛇游戏的强化学习对比实验 —— 从探索到理解，亲手看见算法如何"思考"</p>
+  <span class="hero-badge">Reinforcement Learning · Course Project Plan</span>
+</header>
+
+<!-- ====== MAIN ====== -->
+<main class="container">
+
+  <!-- TOC -->
+  <nav class="toc">
+    <div class="toc-title">目录</div>
+    <ol>
+      <li><a href="#sec1">项目背景与动机</a></li>
+      <li><a href="#sec2">为什么选择贪吃蛇</a></li>
+      <li><a href="#sec3">游戏规则与环境设计</a></li>
+      <li><a href="#sec4">状态空间与动作空间定义</a></li>
+      <li><a href="#sec5">奖励函数设计</a></li>
+      <li><a href="#sec6">算法要求：SARSA 与 Q-Learning</a></li>
+      <li><a href="#sec7">SARSA vs Q-Learning 在贪吃蛇中的预期差异</a></li>
+      <li><a href="#sec8">训练过程可视化要求</a></li>
+      <li><a href="#sec9">评价指标体系</a></li>
+      <li><a href="#sec10">项目交付物清单</a></li>
+      <li><a href="#sec11">开发计划与里程碑</a></li>
+      <li><a href="#sec12">参考资源</a></li>
+    </ol>
+  </nav>
+
+  <!-- Section 1 -->
+  <section class="section" id="sec1">
+    <span class="section-number">Section 01</span>
+    <h2 class="section-title">项目背景与动机</h2>
+    <p>强化学习的核心概念——状态、动作、奖励、策略、价值函数——需要通过动手实践才能真正内化。SARSA（on-policy）和 Q-Learning（off-policy）是课程中介绍的两种最基础的时序差分（TD）控制算法，它们的关键差异在于：<strong>SARSA 学习的是"当前策略下"的价值，而 Q-Learning 学习的是"最优策略下"的价值。</strong></p>
+    <p>然而，许多课程作业（如悬崖寻路）中两者的性能差异不够直观，难以激发深入思考。本项目选择<strong>贪吃蛇（Snake）</strong>作为实验环境，其游戏规则简单但策略空间足够丰富，能够清晰地展现出两种算法在安全性与最优性之间的权衡差异。</p>
+    <div class="highlight-box">
+      <p><strong>核心目标：</strong>不是做出一个"花哨的游戏 AI"，而是通过一个<strong>足够合适且有趣</strong>的场景，让你<strong>亲眼看到</strong> SARSA 和 Q-Learning 在相同环境下做出不同决策的过程——这才是真正的算法理解。</p>
+    </div>
+  </section>
+
+  <!-- Section 2 -->
+  <section class="section" id="sec2">
+    <span class="section-number">Section 02</span>
+    <h2 class="section-title">为什么选择贪吃蛇</h2>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title"><span class="icon icon-green">&#10003;</span> 教学适配度高</div>
+        <ul>
+          <li><strong>状态空间可控：</strong>经合理离散化后，状态数约 300 个，Q 表完全可管理</li>
+          <li><strong>奖励结构丰富：</strong>吃食物（正奖励）、死亡（负奖励）、存活（小负/零奖励）形成多层级奖励信号</li>
+          <li><strong>策略差异显性化：</strong>蛇身附近的狭窄通道中，SARSA 倾向保守绕行，Q-Learning 可能选择冒险抄近路——差异一目了然</li>
+          <li><strong>无需深度学习：</strong>经典 Q 表方法即可训练出有效策略</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="icon icon-orange">&#9733;</span> 趣味性与交互性</div>
+        <ul>
+          <li><strong>直观可视：</strong>蛇的移动轨迹、探索路径可直接渲染在网格上</li>
+          <li><strong>渐进成就感：</strong>从随机乱走到流畅吃食，训练效果肉眼可见</li>
+          <li><strong>对比实验天然：</strong>同一环境两组 Q 表，分屏/切换对比，差异清晰</li>
+          <li><strong>可扩展性：</strong>后续可添加障碍物、多蛇对战等高级玩法</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 3 -->
+  <section class="section" id="sec3">
+    <span class="section-number">Section 03</span>
+    <h2 class="section-title">游戏规则与环境设计</h2>
+
+    <div class="card">
+      <div class="card-title"><span class="icon icon-green">&#9638;</span> 基础规则</div>
+      <p>在经典贪吃蛇规则基础上做简化，使其适合 Q 表学习：</p>
+      <ul>
+        <li>地图为 <strong>10×10</strong> 的网格，四周有墙壁（碰撞即死亡）</li>
+        <li>蛇初始长度为 <strong>3 节</strong>，位于地图中央附近</li>
+        <li>每个时间步，蛇向某个方向移动一格</li>
+        <li>吃到食物后蛇身增长 1 节，食物随机刷新到空位</li>
+        <li><strong>死亡条件：</strong>撞墙 或 撞到自身</li>
+        <li>单局最大步数限制为 <strong>200 步</strong>（防止无限循环）</li>
+      </ul>
+    </div>
+
+    <p style="margin-top: 20px; margin-bottom: 12px; color: var(--text-primary); font-weight: 500; font-size: 0.92rem;">环境示意图（10×10 网格）：</p>
+    <div style="overflow-x: auto;">
+      <div class="env-grid">
+        <!-- Row 0: walls -->
+        <div class="env-cell wall"></div><div class="env-cell wall"></div><div class="env-cell wall"></div><div class="env-cell wall"></div><div class="env-cell wall"></div><div class="env-cell wall"></div><div class="env-cell wall"></div><div class="env-cell wall"></div><div class="env-cell wall"></div><div class="env-cell wall"></div>
+        <!-- Row 1 -->
+        <div class="env-cell wall"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell food">●</div><div class="env-cell wall"></div>
+        <!-- Row 2 -->
+        <div class="env-cell wall"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell wall"></div>
+        <!-- Row 3 -->
+        <div class="env-cell wall"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell wall"></div>
+        <!-- Row 4 -->
+        <div class="env-cell wall"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell snake">4</div><div class="env-cell snake">3</div><div class="env-cell snake">2</div><div class="env-cell head">H</div><div class="env-cell empty"></div><div class="env-cell wall"></div>
+        <!-- Row 5 -->
+        <div class="env-cell wall"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell wall"></div>
+        <!-- Row 6 -->
+        <div class="env-cell wall"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell wall"></div>
+        <!-- Row 7 -->
+        <div class="env-cell wall"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell wall"></div>
+        <!-- Row 8 -->
+        <div class="env-cell wall"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell empty"></div><div class="env-cell wall"></div>
+        <!-- Row 9: walls -->
+        <div class="env-cell wall"></div><div class="env-cell wall"></div><div class="env-cell wall"></div><div class="env-cell wall"></div><div class="env-cell wall"></div><div class="env-cell wall"></div><div class="env-cell wall"></div><div class="env-cell wall"></div><div class="env-cell wall"></div><div class="env-cell wall"></div>
+      </div>
+    </div>
+    <p style="font-size: 0.82rem; color: var(--text-muted);">H = 蛇头, 2/3/4 = 蛇身, ● = 食物, 灰色 = 墙壁</p>
+  </section>
+
+  <!-- Section 4 -->
+  <section class="section" id="sec4">
+    <span class="section-number">Section 04</span>
+    <h2 class="section-title">状态空间与动作空间定义</h2>
+
+    <div class="card">
+      <div class="card-title"><span class="icon icon-blue">&#9881;</span> 动作空间</div>
+      <p>动作空间 <strong>A = {上, 下, 左, 右}</strong>，共 4 个离散动作。不允许蛇直接掉头（即不能从"向右"直接变为"向左"），实现时需过滤无效动作。</p>
+    </div>
+
+    <div class="card" style="margin-top: 16px;">
+      <div class="card-title"><span class="icon icon-blue">&#9881;</span> 状态空间（关键设计）</div>
+      <p>为了让 Q 表可控（避免维度爆炸），不直接使用坐标作为状态，而是将每个状态编码为<strong>局部感知特征</strong>的组合：</p>
+
+      <div class="state-diagram">
+        <div class="state-grid">
+          <div class="state-item">
+            <span class="state-label">危险感知</span>
+            <span class="state-desc">正前方、左方、右方是否有障碍（墙/自身）<br><code>2^3 = 8 种</code></span>
+          </div>
+          <div class="state-item">
+            <span class="state-label">移动方向</span>
+            <span class="state-desc">当前蛇的移动方向（上/下/左/右）<br><code>4 种</code></span>
+          </div>
+          <div class="state-item">
+            <span class="state-label">食物方向</span>
+            <span class="state-desc">食物相对蛇头的方位（8方向 或 简化为4方向）<br><code>4 或 8 种</code></span>
+          </div>
+          <div class="state-item">
+            <span class="state-label">可达性</span>
+            <span class="state-desc">（可选进阶）蛇头附近通道是否狭窄<br><code>2 种（宽/窄）</code></span>
+          </div>
+        </div>
+      </div>
+
+      <p><strong>最小状态空间：</strong>8 × 4 × 4 = <strong>128 个状态</strong></p>
+      <p><strong>推荐状态空间：</strong>8 × 4 × 8 = <strong>256 个状态</strong></p>
+      <p>每个状态只需查询 Q 表中的 4 个动作值，Q 表大小约 <strong>256 × 4 = 1024</strong> 个条目——训练极快，便于实时可视化。</p>
+    </div>
+
+    <div class="highlight-box blue">
+      <p><strong>为什么这样设计状态？</strong></p>
+      <p>直接使用 (x, y, 蛇身形状) 会导致状态空间爆炸（指数级）。而局部特征编码让智能体学会"通用规则"（如：前方有障碍就转向，食物在左边就左转），而不是记忆每一步的位置——这正是 SARSA/Q-Learning 这类表格型方法的正确使用方式。</p>
+    </div>
+  </section>
+
+  <!-- Section 5 -->
+  <section class="section" id="sec5">
+    <span class="section-number">Section 05</span>
+    <h2 class="section-title">奖励函数设计</h2>
+    <p>奖励函数是引导算法行为的核心，需精心设计：</p>
+
+    <div class="card">
+      <table class="algo-table">
+        <thead>
+          <tr>
+            <th style="width: 30%;">事件</th>
+            <th style="width: 20%;">奖励值</th>
+            <th>设计理由</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>吃到食物</strong></td>
+            <td style="color: var(--accent); font-weight: 700;">+10</td>
+            <td>主要正向激励，鼓励蛇主动寻找食物</td>
+          </tr>
+          <tr>
+            <td><strong>死亡（撞墙/撞自身）</strong></td>
+            <td style="color: var(--danger); font-weight: 700;">-10</td>
+            <td>主要惩罚，让智能体学会避开危险</td>
+          </tr>
+          <tr>
+            <td><strong>每步存活</strong></td>
+            <td style="color: var(--accent-orange); font-weight: 700;">-0.1</td>
+            <td>微小惩罚，防止蛇原地打转/拖延，鼓励尽快吃到食物</td>
+          </tr>
+          <tr>
+            <td><strong>靠近食物（距离减少）</strong></td>
+            <td style="color: var(--accent); font-weight: 700;">+1</td>
+            <td>（可选）中间引导信号，帮助早期学习。SARSA 对此更敏感</td>
+          </tr>
+          <tr>
+            <td><strong>远离食物（距离增加）</strong></td>
+            <td style="color: var(--danger); font-weight: 700;">-1</td>
+            <td>（可选）与"靠近食物"配合使用</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="highlight-box orange">
+      <p><strong>可选奖励消融实验：</strong>分别在"有/无中间引导信号"下训练 SARSA 和 Q-Learning，观察信号对两者探索行为的不同影响——SARSA 因 on-policy 特性会更保守地跟随引导，而 Q-Learning 可能忽略引导直接探索更短路径。</p>
+    </div>
+  </section>
+
+  <!-- Section 6 -->
+  <section class="section" id="sec6">
+    <span class="section-number">Section 06</span>
+    <h2 class="section-title">算法要求：SARSA 与 Q-Learning</h2>
+
+    <div class="card">
+      <div class="card-title"><span class="icon icon-green">&#8734;</span> SARSA（on-policy TD control）</div>
+      <div class="formula-block">
+Q(S, A) ← Q(S, A) + α [R + γ · Q(S', A') - Q(S, A)]
+        <br><span class="comment">// 注意：A' 是用当前策略（如 ε-greedy）实际选择的下一个动作</span>
+      </div>
+      <p><strong>实现要求：</strong></p>
+      <ul>
+        <li>使用 ε-greedy 策略选择动作（探索率 ε 从 1.0 线性衰减至 0.01）</li>
+        <li>学习率 α = 0.1，折扣因子 γ = 0.95</li>
+        <li>每步更新：先执行 A，观察 R 和 S'，用当前策略选择 A'，然后更新 Q(S,A)</li>
+      </ul>
+    </div>
+
+    <div class="card" style="margin-top: 16px;">
+      <div class="card-title"><span class="icon icon-orange">&#9889;</span> Q-Learning（off-policy TD control）</div>
+      <div class="formula-block">
+Q(S, A) ← Q(S, A) + α [R + γ · max_a Q(S', a) - Q(S, A)]
+        <br><span class="comment">// 注意：取 S' 下所有动作的最大 Q 值，与实际执行的动作无关</span>
+      </div>
+      <p><strong>实现要求：</strong></p>
+      <ul>
+        <li>使用 ε-greedy 策略选择动作（同 SARSA，相同的 ε 衰减方案）</li>
+        <li>学习率 α = 0.1，折扣因子 γ = 0.95</li>
+        <li>每步更新：先执行 A，观察 R 和 S'，直接取 max_a Q(S',a) 更新</li>
+      </ul>
+    </div>
+
+    <div class="card" style="margin-top: 16px;">
+      <div class="card-title"><span class="icon icon-blue">&#128295;</span> 通用实现要求</div>
+      <ul>
+        <li><strong>Q 表初始化：</strong>全部初始化为 0</li>
+        <li><strong>ε 衰减策略：</strong>ε = max(0.01, 1.0 - episode / 500)，在 500 个 episode 内从 1.0 线性衰减到 0.01</li>
+        <li><strong>训练轮数：</strong>至少 2000 个 episode</li>
+        <li><strong>每 episode 最大步数：</strong>200 步</li>
+        <li><strong>代码结构：</strong>SARSA 和 Q-Learning 共享同一个环境类，仅更新规则不同——方便对比</li>
+        <li><strong>编程语言：</strong>Python 3，推荐使用 NumPy 进行 Q 表操作</li>
+        <li><strong>渲染库：</strong>推荐 Pygame 或 Matplotlib 均可</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Section 7 -->
+  <section class="section" id="sec7">
+    <span class="section-number">Section 07</span>
+    <h2 class="section-title">SARSA vs Q-Learning 在贪吃蛇中的预期差异</h2>
+    <p>这是本项目的核心探究问题。以下是你应该在实验中观察到的行为差异：</p>
+
+    <table class="algo-table">
+      <thead>
+        <tr>
+          <th style="width: 20%;">维度</th>
+          <th style="width: 40%;">SARSA（on-policy）</th>
+          <th style="width: 40%;">Q-Learning（off-policy）</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>策略风格</strong></td>
+          <td>偏保守。Q 值反映的是 ε-greedy 策略下的价值（包含随机探索的"风险"），因此学到的路径会<strong>远离危险区域</strong></td>
+          <td>偏激进。Q 值反映的是最优策略下的价值，学到的路径更短但可能<strong>紧贴墙壁或蛇身</strong></td>
+        </tr>
+        <tr>
+          <td><strong>狭窄通道</strong></td>
+          <td>倾向于<strong>绕行</strong>，因为狭窄通道中 ε-greedy 探索有概率撞墙，其 Q 值会因"探索风险"被打压</td>
+          <td>倾向于<strong>穿越</strong>，因为 max 操作只看最优路径，忽略探索噪声</td>
+        </tr>
+        <tr>
+          <td><strong>死亡率</strong></td>
+          <td>训练后期<strong>死亡率更低</strong>（更安全的策略）</td>
+          <td>训练后期<strong>可能仍有一定死亡率</strong>（最优路径本身有风险）</td>
+        </tr>
+        <tr>
+          <td><strong>平均得分</strong></td>
+          <td>可能略低——安全但不够高效</td>
+          <td>可能更高——激进但高效</td>
+        </tr>
+        <tr>
+          <td><strong>收敛速度</strong></td>
+          <td>相对较慢（因为 Q 值估计更"诚实"，波动更小但进步也更慢）</td>
+          <td>相对较快（因为 max 操作让价值信号传播更快）</td>
+        </tr>
+        <tr>
+          <td><strong>类比</strong></td>
+          <td>像一个<strong>"谨慎的新手司机"</strong>——宁可多绕路也不冒险超车</td>
+          <td>像一个<strong>"自信的老司机"</strong>——走最短路径，但偶尔会出事故</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="highlight-box">
+      <p><strong>实验验证建议：</strong>在训练过程中选取同一个测试 episode（固定 ε=0，不探索），分别用两个模型运行，逐帧记录蛇的移动轨迹。将两条轨迹叠加在同一张地图上对比——你将直观看到 SARSA 走出的"安全弯路"和 Q-Learning 走出的"激进捷径"。</p>
+    </div>
+  </section>
+
+  <!-- Section 8 -->
+  <section class="section" id="sec8">
+    <span class="section-number">Section 08</span>
+    <h2 class="section-title">训练过程可视化要求</h2>
+    <p>可视化是理解算法行为的关键。要求实现以下三层可视化：</p>
+
+    <div class="card">
+      <div class="card-title"><span class="icon icon-green">&#127916;</span> Level 1：实时游戏画面</div>
+      <ul>
+        <li>在网格地图上实时渲染蛇身、食物、墙壁</li>
+        <li>用<strong>不同颜色</strong>标注蛇头方向、Q 值最大的动作方向</li>
+        <li>可调节渲染速度（慢速观察 / 快速训练）</li>
+        <li>显示当前 episode、步数、得分、ε 值</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon icon-orange">&#128202;</span> Level 2：训练曲线</div>
+      <ul>
+        <li>实时绘制 <strong>每个 episode 的得分</strong>（折线图 + 滑动平均）</li>
+        <li>实时绘制 <strong>每个 episode 的存活步数</strong></li>
+        <li>SARSA 与 Q-Learning 的曲线<strong>叠加在同一张图上</strong>，用不同颜色区分</li>
+        <li>推荐使用 Matplotlib 动态更新（<code>plt.ion()</code>）或 Pygame 内嵌绘图</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon icon-blue">&#128270;</span> Level 3：Q 值热力图（进阶）</div>
+      <ul>
+        <li>对于地图上每个格子，用<strong>颜色深浅</strong>表示该位置的最大 Q 值</li>
+        <li>用<strong>箭头</strong>表示每个位置 Q 值最大的动作方向</li>
+        <li>每隔 N 个 episode 更新一次，形成"Q 值逐渐成型"的动态过程</li>
+        <li>SARSA 和 Q-Learning 的热力图<strong>并排显示</strong></li>
+      </ul>
+    </div>
+
+    <div class="highlight-box blue">
+      <p><strong>分屏对比方案：</strong>建议将游戏窗口分为左右两半，左边 SARSA，右边 Q-Learning，同步运行同一个初始状态的 episode——你可以实时看到两条蛇在同一个地图上走出不同路线。</p>
+    </div>
+  </section>
+
+  <!-- Section 9 -->
+  <section class="section" id="sec9">
+    <span class="section-number">Section 09</span>
+    <h2 class="section-title">评价指标体系</h2>
+
+    <div class="grid-3">
+      <div class="metric-card">
+        <div class="metric-value green">μ ± σ</div>
+        <div class="metric-label">平均得分 ± 标准差<br>（最后 200 个 episode）</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value orange">%</div>
+        <div class="metric-label">死亡率<br>（最后 200 个 episode）</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value blue">steps</div>
+        <div class="metric-label">平均存活步数<br>（最后 200 个 episode）</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top: 16px;">
+      <div class="card-title"><span class="icon icon-blue">&#128200;</span> 完整指标清单</div>
+      <table class="algo-table">
+        <thead>
+          <tr>
+            <th>指标名称</th>
+            <th>计算方式</th>
+            <th>意义</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>平均得分</strong></td>
+            <td>最后 200 episodes 的得分均值 ± 标准差</td>
+            <td>综合表现的核心指标</td>
+          </tr>
+          <tr>
+            <td><strong>最高得分</strong></td>
+            <td>所有 episode 中的最高得分</td>
+            <td>算法的天花板表现</td>
+          </tr>
+          <tr>
+            <td><strong>死亡率</strong></td>
+            <td>最后 200 episodes 中死亡 episode 的占比</td>
+            <td>安全性指标，预期 SARSA &lt; Q-Learning</td>
+          </tr>
+          <tr>
+            <td><strong>平均存活步数</strong></td>
+            <td>最后 200 episodes 中存活步数均值</td>
+            <td>反映策略的持续性</td>
+          </tr>
+          <tr>
+            <td><strong>收敛 episode</strong></td>
+            <td>滑动平均得分首次达到最终得分 90% 的 episode 编号</td>
+            <td>学习速度指标</td>
+          </tr>
+          <tr>
+            <td><strong>死亡原因分布</strong></td>
+            <td>撞墙 vs 撞自身的比例</td>
+            <td>分析策略弱点（撞墙多→路径规划差，撞自身多→空间意识差）</td>
+          </tr>
+          <tr>
+            <td><strong>食物效率</strong></td>
+            <td>平均得分 / 平均存活步数</td>
+            <td>每步获取食物的效率</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="highlight-box">
+      <p><strong>实验报告要求：</strong>将以上指标整理为对比表格，并绘制 SARSA vs Q-Learning 的学习曲线对比图、Q 值热力图对比图、典型 episode 轨迹对比图。在报告中分析"为什么 SARSA 在这个场景下更安全/保守""Q-Learning 的 max 操作如何导致激进行为"等观察结论。</p>
+    </div>
+  </section>
+
+  <!-- Section 10 -->
+  <section class="section" id="sec10">
+    <span class="section-number">Section 10</span>
+    <h2 class="section-title">项目交付物清单</h2>
+
+    <div class="card">
+      <table class="algo-table">
+        <thead>
+          <tr>
+            <th style="width: 8%;">#</th>
+            <th style="width: 30%;">交付物</th>
+            <th>说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td><strong>环境代码</strong> <code>snake_env.py</code></td>
+            <td>10×10 网格贪吃蛇环境，支持 <code>reset()</code>、<code>step(action)</code>、<code>render()</code>，状态编码为局部特征</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td><strong>算法代码</strong> <code>agents.py</code></td>
+            <td>SARSA 和 Q-Learning 两个 Agent 类，共享接口，仅 update 方法不同</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td><strong>训练脚本</strong> <code>train.py</code></td>
+            <td>可一键运行训练，支持参数配置（α、γ、ε、episode 数等）</td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td><strong>可视化脚本</strong> <code>visualize.py</code></td>
+            <td>实时游戏渲染 + 训练曲线 + Q 值热力图</td>
+          </tr>
+          <tr>
+            <td>5</td>
+            <td><strong>对比实验脚本</strong> <code>compare.py</code></td>
+            <td>同时训练两个 agent，输出对比图表</td>
+          </tr>
+          <tr>
+            <td>6</td>
+            <td><strong>实验报告</strong> <code>report.pdf</code></td>
+            <td>包含背景、方法、实验结果、对比分析、结论（建议 8-15 页）</td>
+          </tr>
+          <tr>
+            <td>7</td>
+            <td><strong>README</strong></td>
+            <td>项目说明文档，含环境配置、运行方式、文件结构说明</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Section 11 -->
+  <section class="section" id="sec11">
+    <span class="section-number">Section 11</span>
+    <h2 class="section-title">开发计划与里程碑</h2>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="phase">Phase 1 · 第 1-2 天</div>
+        <div class="phase-title">环境搭建</div>
+        <p>实现 10×10 贪吃蛇环境（<code>snake_env.py</code>），含碰撞检测、食物生成、状态编码函数。</p>
+        <p>用随机策略测试环境正确性：渲染一局随机蛇的移动，确认无 bug。</p>
+      </div>
+
+      <div class="timeline-item">
+        <div class="phase">Phase 2 · 第 3-4 天</div>
+        <div class="phase-title">算法实现</div>
+        <p>实现 SARSA Agent 和 Q-Learning Agent，各自训练 1000 episodes，确认 Q 表数值在合理范围。</p>
+        <p>实现基础训练曲线绘制，验证两个 agent 的学习曲线形状合理。</p>
+      </div>
+
+      <div class="timeline-item">
+        <div class="phase">Phase 3 · 第 5-6 天</div>
+        <div class="phase-title">可视化系统</div>
+        <p>实现 Pygame 实时渲染（蛇、食物、Q 值方向指示）。</p>
+        <p>实现分屏对比（SARSA 左 / Q-Learning 右，同步运行）。</p>
+        <p>实现训练曲线实时更新。</p>
+      </div>
+
+      <div class="timeline-item">
+        <div class="phase">Phase 4 · 第 7-8 天</div>
+        <div class="phase-title">对比实验与分析</div>
+        <p>运行完整 2000 episode 对比实验（可重复 3 次取平均）。</p>
+        <p>生成 Q 值热力图对比。</p>
+        <p>记录典型 episode 轨迹对比。</p>
+        <p>收集全部评价指标数据。</p>
+      </div>
+
+      <div class="timeline-item">
+        <div class="phase">Phase 5 · 第 9-10 天</div>
+        <div class="phase-title">报告撰写与整理</div>
+        <p>撰写实验报告，整理图表，分析 SARSA vs Q-Learning 的行为差异。</p>
+        <p>整理代码，编写 README，确保项目可复现。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 12 -->
+  <section class="section" id="sec12">
+    <span class="section-number">Section 12</span>
+    <h2 class="section-title">参考资源</h2>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title"><span class="icon icon-green">&#128218;</span> 教材与课程</div>
+        <ul>
+          <li>Sutton & Barto, <em>Reinforcement Learning: An Introduction</em>, Chapter 6（TD Learning）</li>
+          <li>David Silver's RL Course, Lecture 4: Model-Free Prediction & Control</li>
+          <li>CS285 (UC Berkeley) Deep RL Course, Lecture 2-3</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="icon icon-orange">&#128187;</span> 技术工具</div>
+        <ul>
+          <li><strong>Pygame：</strong>游戏渲染 <code>pip install pygame</code></li>
+          <li><strong>NumPy：</strong>Q 表操作 <code>pip install numpy</code></li>
+          <li><strong>Matplotlib：</strong>训练曲线绘制 <code>pip install matplotlib</code></li>
+          <li><strong>Seaborn：</strong>热力图美化（可选）<code>pip install seaborn</code></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="highlight-box" style="margin-top: 16px;">
+      <p><strong>进阶拓展方向（选做）：</strong></p>
+      <ul>
+        <li>将地图从 10×10 扩大到 20×20，观察状态编码的泛化能力</li>
+        <li>添加障碍物（固定位置的墙壁），增加状态复杂度</li>
+        <li>实现 Double Q-Learning，对比三方表现</li>
+        <li>尝试不同的 ε 衰减策略（指数衰减、阶梯衰减等）</li>
+        <li>录制训练过程的 timelapse 视频（1000 episodes 压缩到 30 秒）</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>SARSA vs Q-Learning · 贪吃蛇强化学习项目计划书</p>
+    <p style="margin-top: 6px; font-size: 0.72rem; color: var(--text-muted);">Generated for RL Course Project · Reinforcement Learning Fundamentals</p>
+  </footer>
+
+</main>
+
+</body>
+</html>

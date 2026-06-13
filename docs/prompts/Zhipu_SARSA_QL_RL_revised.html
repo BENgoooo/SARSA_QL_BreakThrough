@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>暗影潜行 — 强化学习项目规划书</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e17;
+    --bg2: #0f1520;
+    --card: #131a28;
+    --card2: #182035;
+    --border: #1e2a42;
+    --fg: #e4e8f1;
+    --fg-muted: #8892a8;
+    --accent: #00e5a0;
+    --accent2: #00c4ff;
+    --danger: #ff4466;
+    --warning: #ffb830;
+    --gold: #ffd700;
+    --code-bg: #0c1018;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Noto Sans SC', sans-serif;
+    font-weight: 400;
+    line-height: 1.8;
+    overflow-x: hidden;
+  }
+
+  /* ===== 滚动条 ===== */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+  /* ===== 顶部装饰线 ===== */
+  .top-line {
+    position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 1000;
+    background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent));
+    background-size: 200% 100%;
+    animation: lineMove 3s ease-in-out infinite;
+  }
+  @keyframes lineMove {
+    0%, 100% { background-position: 0% 0%; }
+    50% { background-position: 100% 0%; }
+  }
+
+  /* ===== Hero 区域 ===== */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  .hero-bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 50%, rgba(0,229,160,0.06) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 60% at 80% 40%, rgba(0,196,255,0.05) 0%, transparent 70%),
+      radial-gradient(ellipse 80% 40% at 50% 100%, rgba(0,229,160,0.04) 0%, transparent 60%);
+  }
+  .hero-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(30,42,66,0.3) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(30,42,66,0.3) 1px, transparent 1px);
+    background-size: 60px 60px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, black 20%, transparent 70%);
+    animation: gridFloat 20s linear infinite;
+  }
+  @keyframes gridFloat {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(60px, 60px); }
+  }
+
+  /* 模拟小地图动画 */
+  .hero-minimap {
+    position: absolute;
+    right: 8%; top: 50%; transform: translateY(-50%);
+    width: 320px; height: 320px;
+    opacity: 0.35;
+  }
+  .minimap-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    gap: 2px; width: 100%; height: 100%;
+  }
+  .minimap-cell {
+    border-radius: 3px;
+    transition: background 0.3s;
+  }
+  .minimap-cell.wall { background: #1a2235; }
+  .minimap-cell.floor { background: #0d1219; }
+  .minimap-cell.agent {
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
+    border-radius: 50%;
+    animation: agentPulse 1.5s ease-in-out infinite;
+  }
+  .minimap-cell.guard {
+    background: var(--danger);
+    box-shadow: 0 0 10px var(--danger);
+    border-radius: 50%;
+    animation: guardPulse 1s ease-in-out infinite;
+  }
+  .minimap-cell.goal {
+    background: var(--gold);
+    box-shadow: 0 0 10px var(--gold);
+    border-radius: 2px;
+    animation: goalGlow 2s ease-in-out infinite;
+  }
+  @keyframes agentPulse {
+    0%, 100% { box-shadow: 0 0 8px var(--accent); }
+    50% { box-shadow: 0 0 20px var(--accent); }
+  }
+  @keyframes guardPulse {
+    0%, 100% { box-shadow: 0 0 6px var(--danger); transform: scale(1); }
+    50% { box-shadow: 0 0 14px var(--danger); transform: scale(1.1); }
+  }
+  @keyframes goalGlow {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+  }
+
+  .hero-content {
+    position: relative; z-index: 2;
+    max-width: 680px; padding: 0 2rem;
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 16px; border-radius: 20px;
+    background: rgba(0,229,160,0.08);
+    border: 1px solid rgba(0,229,160,0.2);
+    font-size: 0.8rem; color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 1.5rem;
+    letter-spacing: 0.5px;
+  }
+  .hero-badge i { font-size: 0.7rem; }
+  .hero-title {
+    font-family: 'Noto Serif SC', serif;
+    font-weight: 900; font-size: clamp(2.8rem, 6vw, 4.2rem);
+    line-height: 1.15; margin-bottom: 1rem;
+    background: linear-gradient(135deg, var(--fg) 0%, var(--accent) 50%, var(--accent2) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero-subtitle {
+    font-size: 1.1rem; color: var(--fg-muted);
+    font-weight: 300; margin-bottom: 2rem;
+    max-width: 520px;
+  }
+  .hero-subtitle strong { color: var(--accent); font-weight: 500; }
+  .hero-tags {
+    display: flex; flex-wrap: wrap; gap: 10px;
+  }
+  .hero-tag {
+    padding: 5px 14px; border-radius: 6px;
+    font-size: 0.78rem; font-family: 'JetBrains Mono', monospace;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--fg-muted);
+  }
+  .hero-tag.highlight {
+    border-color: rgba(0,229,160,0.3);
+    color: var(--accent);
+    background: rgba(0,229,160,0.05);
+  }
+
+  /* ===== 主体内容 ===== */
+  .content-wrap {
+    max-width: 900px; margin: 0 auto;
+    padding: 0 2rem 6rem;
+  }
+
+  /* ===== 分节 ===== */
+  .section {
+    margin-top: 5rem;
+    opacity: 0; transform: translateY(30px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+  .section.visible {
+    opacity: 1; transform: translateY(0);
+  }
+  .section-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem; color: var(--accent);
+    letter-spacing: 2px; text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-num::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+  }
+  .section-title {
+    font-family: 'Noto Serif SC', serif;
+    font-weight: 700; font-size: 1.9rem;
+    margin-bottom: 1.5rem;
+    color: var(--fg);
+  }
+
+  /* ===== 卡片 ===== */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.8rem;
+    margin-bottom: 1.2rem;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .card:hover {
+    border-color: rgba(0,229,160,0.25);
+    box-shadow: 0 0 30px rgba(0,229,160,0.04);
+  }
+  .card-title {
+    font-weight: 700; font-size: 1.1rem;
+    margin-bottom: 0.8rem;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .card-title .icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem;
+  }
+  .icon-green { background: rgba(0,229,160,0.12); color: var(--accent); }
+  .icon-blue { background: rgba(0,196,255,0.12); color: var(--accent2); }
+  .icon-red { background: rgba(255,68,102,0.12); color: var(--danger); }
+  .icon-gold { background: rgba(255,215,0,0.12); color: var(--gold); }
+
+  .card p, .card li {
+    color: var(--fg-muted); font-size: 0.92rem; line-height: 1.85;
+  }
+  .card strong { color: var(--fg); font-weight: 500; }
+  .card ul { padding-left: 1.2rem; }
+  .card ul li { margin-bottom: 0.4rem; }
+
+  /* ===== 高亮框 ===== */
+  .highlight-box {
+    background: linear-gradient(135deg, rgba(0,229,160,0.06), rgba(0,196,255,0.04));
+    border: 1px solid rgba(0,229,160,0.15);
+    border-radius: 10px; padding: 1.4rem 1.6rem;
+    margin: 1.2rem 0;
+  }
+  .highlight-box p { color: var(--fg); font-size: 0.92rem; }
+  .highlight-box .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem; color: var(--accent);
+    letter-spacing: 1px; margin-bottom: 0.5rem;
+  }
+
+  /* ===== 代码块 ===== */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px; padding: 1.2rem 1.4rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem; line-height: 1.9;
+    overflow-x: auto; margin: 1rem 0;
+    color: var(--fg-muted);
+  }
+  .code-block .kw { color: var(--accent2); }
+  .code-block .fn { color: var(--accent); }
+  .code-block .cm { color: #4a5568; }
+  .code-block .str { color: var(--warning); }
+  .code-block .num { color: #c084fc; }
+
+  /* ===== 表格 ===== */
+  .table-wrap {
+    overflow-x: auto; margin: 1rem 0;
+    border-radius: 8px; border: 1px solid var(--border);
+  }
+  table {
+    width: 100%; border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+  thead { background: var(--card2); }
+  th {
+    text-align: left; padding: 12px 16px;
+    font-weight: 600; color: var(--fg);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.82rem; letter-spacing: 0.3px;
+  }
+  td {
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(30,42,66,0.5);
+    color: var(--fg-muted);
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(0,229,160,0.02); }
+  td code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    background: rgba(0,229,160,0.08);
+    padding: 2px 7px; border-radius: 4px;
+    color: var(--accent);
+  }
+
+  /* ===== 里程碑 ===== */
+  .milestone {
+    display: flex; gap: 1.2rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .milestone::before {
+    content: '';
+    position: absolute; left: 19px; top: 40px; bottom: -10px;
+    width: 2px; background: var(--border);
+  }
+  .milestone:last-child::before { display: none; }
+  .milestone-dot {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--card2); border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem; font-weight: 600;
+    color: var(--accent); flex-shrink: 0;
+    z-index: 1;
+  }
+  .milestone-body {
+    flex: 1; padding-top: 6px;
+  }
+  .milestone-title {
+    font-weight: 600; font-size: 1rem; margin-bottom: 0.3rem;
+  }
+  .milestone-desc {
+    color: var(--fg-muted); font-size: 0.88rem;
+  }
+
+  /* ===== 对比栏 ===== */
+  .compare-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+    margin: 1.2rem 0;
+  }
+  @media (max-width: 640px) {
+    .compare-grid { grid-template-columns: 1fr; }
+    .hero-minimap { display: none; }
+  }
+  .compare-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 1.4rem;
+  }
+  .compare-card.sarsa { border-top: 3px solid var(--accent2); }
+  .compare-card.ql { border-top: 3px solid var(--accent); }
+  .compare-card h4 {
+    font-size: 0.95rem; margin-bottom: 0.6rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .compare-card.sarsa h4 { color: var(--accent2); }
+  .compare-card.ql h4 { color: var(--accent); }
+  .compare-card p { color: var(--fg-muted); font-size: 0.88rem; }
+
+  /* ===== 地图预览 ===== */
+  .map-preview {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 3px;
+    max-width: 360px;
+    margin: 1.2rem auto;
+    padding: 12px;
+    background: var(--code-bg);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .map-cell {
+    aspect-ratio: 1;
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    transition: transform 0.2s;
+  }
+  .map-cell:hover { transform: scale(1.15); }
+  .map-cell.W { background: #1a2235; color: #2a3650; }
+  .map-cell.F { background: #0d1219; color: #1a2235; }
+  .map-cell.S { background: rgba(0,229,160,0.2); color: var(--accent); border: 1px solid rgba(0,229,160,0.3); }
+  .map-cell.G { background: rgba(255,215,0,0.15); color: var(--gold); border: 1px solid rgba(255,215,0,0.3); }
+  .map-cell.P { background: rgba(255,68,102,0.15); color: var(--danger); border: 1px solid rgba(255,68,102,0.2); }
+
+  /* ===== 底部 ===== */
+  .footer {
+    text-align: center; padding: 3rem 2rem;
+    border-top: 1px solid var(--border);
+    color: var(--fg-muted); font-size: 0.82rem;
+  }
+  .footer a { color: var(--accent); text-decoration: none; }
+
+  /* ===== 动画 ===== */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .hero-content > * {
+    animation: fadeInUp 0.8s ease backwards;
+  }
+  .hero-content > *:nth-child(1) { animation-delay: 0.1s; }
+  .hero-content > *:nth-child(2) { animation-delay: 0.25s; }
+  .hero-content > *:nth-child(3) { animation-delay: 0.4s; }
+  .hero-content > *:nth-child(4) { animation-delay: 0.55s; }
+
+  /* 浮动粒子 */
+  .particle {
+    position: absolute; border-radius: 50%;
+    pointer-events: none;
+    animation: particleFloat linear infinite;
+  }
+  @keyframes particleFloat {
+    0% { transform: translateY(0) translateX(0); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(-100vh) translateX(30px); opacity: 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-line"></div>
+
+<!-- ===== Hero ===== -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+
+  <!-- 模拟小地图动画 -->
+  <div class="hero-minimap" id="heroMinimap">
+    <div class="minimap-grid" id="minimapGrid"></div>
+  </div>
+
+  <div class="hero-content">
+    <div class="hero-badge">
+      <i class="fas fa-flask"></i>
+      Reinforcement Learning Project Brief
+    </div>
+    <h1 class="hero-title">暗影潜行</h1>
+    <p class="hero-subtitle">
+      一个专为理解 <strong>SARSA</strong> 与 <strong>Q-Learning</strong> 行为差异而设计的网格世界项目——在巡逻守卫的注视下，保守与激进，谁才能全身而退？
+    </p>
+    <div class="hero-tags">
+      <span class="hero-tag highlight">SARSA</span>
+      <span class="hero-tag highlight">Q-Learning</span>
+      <span class="hero-tag">ε-greedy</span>
+      <span class="hero-tag">Tabular RL</span>
+      <span class="hero-tag">可视化训练</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 正文 ===== -->
+<div class="content-wrap">
+
+
+  <!-- 第零部分：规格修订说明 -->
+  <section class="section visible" id="sec0">
+    <div class="section-num">Section 00 — 规格修订说明</div>
+    <h2 class="section-title">先修正任务逻辑，再进入代码实现</h2>
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-red"><i class="fas fa-triangle-exclamation"></i></span>
+        本版修订的核心原因
+      </div>
+      <p>原任务书的核心想法是可行的，但存在几处会直接影响环境建模和训练结果解释的问题：坐标口径不统一、守卫路线标注不完整、状态定义缺少巡逻方向/相位、确定性评估重复运行会得到相同轨迹。修订后，本项目仍保持原目标：用一个中等规模、可视化友好的网格潜行任务，对比 SARSA 与 Q-Learning 的策略差异。</p>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-green"><i class="fas fa-list-check"></i></span>
+        修订后的实现约定
+      </div>
+      <ul>
+        <li>坐标统一为 0 起始 <code>(r,c)</code>：行号向下增大，列号向右增大。</li>
+        <li>状态统一为 <code>(agent_r, agent_c, guardA_phase, guardB_phase)</code>，保证环境满足 Markov 性。</li>
+        <li><code>P</code> 表示守卫巡逻路线，不表示墙；Agent 可以进入，但存在被捕获风险。</li>
+        <li>捕获不终止 episode，而是重置 Agent、守卫位置与巡逻相位；成功到达宝藏才是真正 terminal。</li>
+        <li>最终轨迹对比区分“纯贪心评估”和“鲁棒性评估”，避免把确定性环境中的重复同轨迹误认为多次实验差异。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 第一部分：项目背景 -->
+  <section class="section" id="sec1">
+    <div class="section-num">Section 01 — 项目背景</div>
+    <h2 class="section-title">为什么是"暗影潜行"？</h2>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-green"><i class="fas fa-lightbulb"></i></span>
+        核心动机
+      </div>
+      <p>
+        SARSA 与 Q-Learning 的本质区别在于更新公式中对下一动作的选择方式——SARSA 使用<strong>实际采取的动作</strong>（on-policy），而 Q-Learning 使用<strong>状态下的最大 Q 值动作</strong>（off-policy）。在静态环境中（如标准迷宫、悬崖寻路），两者的策略差异仅在"悬崖边"这种极端场景才明显。而<strong>当环境中存在移动威胁时</strong>，这种差异会被系统性地放大：
+      </p>
+      <ul>
+        <li><strong>Q-Learning</strong> 学到的是"理论上最优路径"——它假设自己不会犯错，因此会贴近守卫走捷径</li>
+        <li><strong>SARSA</strong> 学到的是"考虑探索风险后的安全路径"——因为它知道 ε 探索可能让自己撞上守卫，所以主动绕远</li>
+      </ul>
+    </div>
+
+    <div class="highlight-box">
+      <div class="label">DESIGN PRINCIPLE</div>
+      <p>本项目并非追求游戏花哨，而是让算法本身成为主角。地图、守卫、奖励的每一个参数，都服务于一个目标：<strong>让你亲眼看到两个算法在同一个世界中走出不同的路</strong>。</p>
+    </div>
+  </section>
+
+  <!-- 第二部分：游戏规则 -->
+  <section class="section" id="sec2">
+    <div class="section-num">Section 02 — 游戏规则</div>
+    <h2 class="section-title">暗影潜行：规则定义</h2>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-blue"><i class="fas fa-gamepad"></i></span>
+        世界设定
+      </div>
+      <p>一个 <strong>8×8 的网格世界</strong>，统一采用 <code>(r,c)</code> 的 0 起始坐标：<code>r</code> 表示行号，向下增大；<code>c</code> 表示列号，向右增大。包含以下元素：</p>
+      <ul>
+        <li><strong>墙壁 (W)</strong>：不可通行的障碍物，构建迷宫结构</li>
+        <li><strong>潜入者 (S)</strong>：Agent 的起点，位于地图左上区域，坐标为 <code>(1,1)</code></li>
+        <li><strong>宝藏 (G)</strong>：目标终点，位于地图右下区域，坐标为 <code>(7,6)</code></li>
+        <li><strong>巡逻守卫 (P)</strong>：沿固定路线来回巡逻的敌人，共 2 名；<code>P</code> 代表巡逻路线格，不是墙，Agent 可以经过但会承担被捕获风险</li>
+      </ul>
+    </div>
+
+    <!-- 地图预览 -->
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-gold"><i class="fas fa-map"></i></span>
+        地图布局
+      </div>
+      <p style="margin-bottom:0.8rem;">下图为修订后的推荐地图（W=墙壁, S=起点, G=宝藏, P=守卫巡逻路线）：</p>
+      <div class="map-preview" id="mapPreview"></div>
+      <p style="text-align:center; margin-top:0.6rem; font-size:0.8rem; color:var(--fg-muted);">
+        点击任意格子可查看坐标 · 守卫沿标记区域纵向/横向来回巡逻
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-red"><i class="fas fa-skull-crossbones"></i></span>
+        守卫巡逻规则
+      </div>
+      <ul>
+        <li><strong>守卫 A</strong>：沿第 5 列（<code>c=4</code>）在 <code>(2,4)↔(5,4)</code> 之间<strong>纵向来回巡逻</strong></li>
+        <li><strong>守卫 B</strong>：沿第 7 行（<code>r=6</code>）在 <code>(6,1)↔(6,6)</code> 之间<strong>横向来回巡逻</strong></li>
+        <li>每个环境 step 中，Agent 先执行动作并得到候选位置，随后守卫按确定性巡逻规则移动 1 格；到达巡逻端点后折返</li>
+        <li>碰撞判定采用 step 结束后的同格捕获；若 Agent 与守卫在同一个 step 中交换位置，也视为被捕获</li>
+        <li>被捕获后，Agent、守卫位置与守卫巡逻相位全部重置到初始状态，当前 episode 继续</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-green"><i class="fas fa-shoe-prints"></i></span>
+        Agent 动作空间
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>动作编号</th><th>方向</th><th>坐标变化</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>0</code></td><td>上 (Up)</td><td>(-1, 0)</td></tr>
+            <tr><td><code>1</code></td><td>右 (Right)</td><td>(0, +1)</td></tr>
+            <tr><td><code>2</code></td><td>下 (Down)</td><td>(+1, 0)</td></tr>
+            <tr><td><code>3</code></td><td>左 (Left)</td><td>(0, -1)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>撞墙时停留在原位，但仍然消耗一步。</p>
+    </div>
+  </section>
+
+  <!-- 第三部分：MDP 建模 -->
+  <section class="section" id="sec3">
+    <div class="section-num">Section 03 — MDP 建模</div>
+    <h2 class="section-title">状态、动作、奖励的精确定义</h2>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-blue"><i class="fas fa-cube"></i></span>
+        状态空间 S
+      </div>
+      <p>状态定义修订为 <code>(agent_r, agent_c, guardA_phase, guardB_phase)</code>。这里不只记录守卫位置，而是记录守卫在巡逻周期中的<strong>相位</strong>，因为同一个中间位置可能对应“向前走”或“向后走”两种下一步，单纯记录位置会破坏 Markov 性。</p>
+      <div class="code-block">
+<span class="cm"># 状态维度计算（0 起始坐标，P 为可通行巡逻路线）</span>
+Agent 可通行位置: <span class="num">32</span> 种（非 W 格）
+守卫 A 巡逻相位: <span class="num">6</span> 种，对应循环 (2,4)→(3,4)→(4,4)→(5,4)→(4,4)→(3,4)
+守卫 B 巡逻相位: <span class="num">10</span> 种，对应循环 (6,1)→(6,2)→...→(6,6)→(6,5)→...→(6,2)
+
+总状态数 = <span class="num">32</span> × <span class="num">6</span> × <span class="num">10</span> = <span class="num">1920</span> 个离散状态
+      </div>
+      <p>1920 个状态 × 4 个动作 = <strong>7680 个 Q 值</strong>，仍然完全适合使用表格法存储，训练规模也适合教学观察。</p>
+      <div class="highlight-box">
+        <div class="label">KEY INSIGHT</div>
+        <p>守卫位置的引入是本项目的灵魂——它使得状态空间足够大以展现算法差异，又足够小以确保 Q-table 可行。如果去掉守卫，这就退化为普通迷宫，SARSA 和 Q-Learning 将几乎没有区别。</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-gold"><i class="fas fa-coins"></i></span>
+        奖励函数 R
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>事件</th><th>奖励值</th><th>设计意图</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>到达宝藏 <code>G</code></td><td><code>+100</code></td><td>强烈鼓励到达目标</td></tr>
+            <tr><td>被守卫捕获</td><td><code>-100</code></td><td>强烈惩罚冒险行为</td></tr>
+            <tr><td>每步生存</td><td><code>-1</code></td><td>鼓励缩短路径，避免原地打转</td></tr>
+            <tr><td>撞墙（原地不动）</td><td><code>-2</code></td><td>额外惩罚无效动作</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>被捕获后 Agent 回到起点，守卫回到各自巡逻起点，并将巡逻相位重置为 0。当前回合继续，不作为 terminal 状态；因此更新目标中的下一状态是重置后的初始状态。</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-green"><i class="fas fa-flag-checkered"></i></span>
+        终止条件
+      </div>
+      <ul>
+        <li><strong>成功终止</strong>：Agent 到达宝藏格子</li>
+        <li><strong>截断终止</strong>：单回合超过 <code>max_steps=200</code> 步</li>
+        <li>被守卫捕获<strong>不终止</strong>，而是重置到起点继续当前回合；该设计让 Agent 在长期回报中感受到冒险路线的连续代价</li>
+        <li>到达宝藏为 terminal 状态，此时 SARSA 与 Q-Learning 的 TD target 均只使用即时奖励 <code>r</code>，不再加未来价值项</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 第四部分：算法要求 -->
+  <section class="section" id="sec4">
+    <div class="section-num">Section 04 — 算法要求</div>
+    <h2 class="section-title">SARSA 与 Q-Learning 的实现与对比</h2>
+
+    <div class="compare-grid">
+      <div class="compare-card sarsa">
+        <h4><i class="fas fa-shield-halved"></i> SARSA (On-Policy)</h4>
+        <p>使用实际执行的下一动作 <code>a'</code> 来更新 Q 值。因为 ε-greedy 探索可能选到危险动作，所以 Q 值中自然包含了对探索风险的评估，最终学到<strong>更安全但更长</strong>的路径。</p>
+        <div class="code-block" style="margin-top:0.8rem; font-size:0.78rem;">
+Q(s,a) ← Q(s,a) + α[
+  r + γ·<span class="fn">Q(s',a')</span> - Q(s,a)
+]
+<span class="cm">/* a' 是 ε-greedy 实际选的 */</span>
+        </div>
+      </div>
+      <div class="compare-card ql">
+        <h4><i class="fas fa-bolt"></i> Q-Learning (Off-Policy)</h4>
+        <p>使用下一状态的最大 Q 值来更新，不考虑探索。它假设自己永远选最优动作，因此更倾向<strong>理论最短路径</strong>，即便那条路紧贴守卫。</p>
+        <div class="code-block" style="margin-top:0.8rem; font-size:0.78rem;">
+Q(s,a) ← Q(s,a) + α[
+  r + γ·<span class="fn">max Q(s',·)</span> - Q(s,a)
+]
+<span class="cm">/* 直接取最大，忽略探索 */</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-blue"><i class="fas fa-code"></i></span>
+        实现要求
+      </div>
+      <ul>
+        <li>两个算法共享<strong>相同的环境、超参数和随机种子设置</strong>，仅更新公式不同；训练时为两个算法分别创建独立随机数生成器，避免 SARSA 多采样一次 <code>a'</code> 导致随机序列相互污染</li>
+        <li>使用 <code>defaultdict</code> 或 <code>numpy array</code> 存储 Q-table，key 为 <code>(state, action)</code></li>
+        <li>ε-greedy 策略中，ε 从 <code>1.0</code> 线性衰减到 <code>0.05</code>（前 70% 训练轮次衰减，后 30% 保持 0.05）</li>
+        <li>每个算法训练 <strong>5000 个 episode</strong>，记录每轮的累计奖励、步数、是否成功、被捕获次数</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-gold"><i class="fas fa-sliders"></i></span>
+        推荐超参数
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>超参数</th><th>推荐值</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>α (learning_rate)</code></td><td>0.1</td><td>学习率，不宜过大以保持稳定</td></tr>
+            <tr><td><code>γ (discount_factor)</code></td><td>0.95</td><td>折扣因子，较重视长期回报</td></tr>
+            <tr><td><code>ε_start</code></td><td>1.0</td><td>初始探索率</td></tr>
+            <tr><td><code>ε_end</code></td><td>0.05</td><td>最终探索率</td></tr>
+            <tr><td><code>ε_decay_episodes</code></td><td>3500</td><td>ε 衰减完成的轮次</td></tr>
+            <tr><td><code>max_steps</code></td><td>200</td><td>单回合最大步数</td></tr>
+            <tr><td><code>train_episodes</code></td><td>5000</td><td>总训练轮次</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 第五部分：可视化要求 -->
+  <section class="section" id="sec5">
+    <div class="section-num">Section 05 — 可视化要求</div>
+    <h2 class="section-title">让训练过程"看得见"</h2>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-green"><i class="fas fa-eye"></i></span>
+        可视化一：实时网格动画
+      </div>
+      <p>训练过程中，每隔 N 个 episode 回放一次该轮的完整轨迹：</p>
+      <ul>
+        <li>Agent 用<strong>绿色圆点</strong>表示，守卫用<strong>红色圆点</strong>表示</li>
+        <li>Agent 走过的格子留下<strong>渐变足迹</strong>（步数越大颜色越淡）</li>
+        <li>被捕获时显示<strong>闪烁红色</strong>，到达宝藏时显示<strong>闪烁金色</strong></li>
+        <li>支持暂停/继续/调速（0.5x ~ 5x）</li>
+        <li>推荐使用 <code>matplotlib.animation</code> 或 <code>pygame</code> 实现</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-blue"><i class="fas fa-chart-line"></i></span>
+        可视化二：训练曲线对比
+      </div>
+      <p>在同一张图中绘制 SARSA 和 Q-Learning 的以下指标（滑动平均窗口=50）：</p>
+      <ul>
+        <li><strong>累计奖励曲线</strong>：最核心的对比——SARSA 的平均奖励是否更稳定？Q-Learning 是否波动更大？</li>
+        <li><strong>成功率曲线</strong>：到达宝藏的回合占比</li>
+        <li><strong>被捕获率曲线</strong>：每轮被捕获的次数——这是两者差异最直观的体现</li>
+        <li><strong>平均步数曲线</strong>：SARSA 是否走了更多步？</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-red"><i class="fas fa-fire"></i></span>
+        可视化三：Q-Value 热力图
+      </div>
+      <p>训练结束后，固定守卫巡逻相位，例如 <code>guardA_phase=0</code>、<code>guardB_phase=0</code>，对每个 Agent 可达格子计算 <code>max Q(s,·)</code>，绘制热力图：</p>
+      <ul>
+        <li>对比 SARSA 和 Q-Learning 的价值分布差异</li>
+        <li>观察靠近守卫巡逻路线的格子：SARSA 是否赋予了更低的 Q 值？</li>
+        <li>在热力图上叠加最终策略的<strong>箭头图</strong>（每个格子画 argmax 方向箭头）</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-gold"><i class="fas fa-route"></i></span>
+        可视化四：最终策略轨迹叠加
+      </div>
+      <p>训练完成后，分别做两类评估轨迹：</p>
+      <ul>
+        <li><strong>纯贪心评估</strong>：用 ε=0 从标准初始相位运行 1 次；由于环境确定，重复 10 次会得到完全相同的轨迹</li>
+        <li><strong>鲁棒性评估</strong>：用 ε=0.05 或枚举不同守卫初始相位运行多次，将轨迹叠加绘制，用于观察策略对探索扰动和相位变化的敏感性</li>
+        <li>用不同颜色区分两个算法的轨迹，叠加在同一张地图上</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 第六部分：评估指标 -->
+  <section class="section" id="sec6">
+    <div class="section-num">Section 06 — 评估指标</div>
+    <h2 class="section-title">如何判断项目成功</h2>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-green"><i class="fas fa-bullseye"></i></span>
+        核心验收指标
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>指标</th><th>预期现象</th><th>反映的算法本质</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>训练后期被捕获率</td>
+              <td>SARSA &lt; Q-Learning</td>
+              <td>On-policy 考虑探索风险，学会了避险</td>
+            </tr>
+            <tr>
+              <td>训练后期成功率</td>
+              <td>两者接近（调参后目标为均 &gt; 90%，不是硬性保证）</td>
+              <td>两个算法都能收敛到有效策略</td>
+            </tr>
+            <tr>
+              <td>训练后期平均步数</td>
+              <td>SARSA &gt; Q-Learning</td>
+              <td>SARSA 绕远路换安全</td>
+            </tr>
+            <tr>
+              <td>训练期累计奖励方差</td>
+              <td>SARSA 更小</td>
+              <td>On-policy 策略更稳定保守</td>
+            </tr>
+            <tr>
+              <td>贪心策略路径与守卫距离</td>
+              <td>SARSA 路径更远离守卫</td>
+              <td>Q 值结构反映了对探索风险与巡逻相位的不同估计</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="highlight-box">
+      <div class="label">SUCCESS CRITERIA</div>
+      <p>项目完成的核心标志：<strong>你能够不查资料，用自己的话解释为什么在同一个环境中，SARSA 学到了绕远路而 Q-Learning 走了险路</strong>，并能在可视化结果中指出具体证据。</p>
+    </div>
+  </section>
+
+  <!-- 第七部分：里程碑 -->
+  <section class="section" id="sec7">
+    <div class="section-num">Section 07 — 实施路线</div>
+    <h2 class="section-title">里程碑计划</h2>
+
+    <div class="milestone">
+      <div class="milestone-dot">1</div>
+      <div class="milestone-body">
+        <div class="milestone-title">环境搭建</div>
+        <div class="milestone-desc">实现 <code>ShadowEnv</code> 类：网格初始化、守卫巡逻逻辑、step 函数、reset 函数、渲染函数。手动测试：随机动作跑 100 步，确认守卫正确巡逻、碰撞正确判定、奖励正确返回。</div>
+      </div>
+    </div>
+
+    <div class="milestone">
+      <div class="milestone-dot">2</div>
+      <div class="milestone-body">
+        <div class="milestone-title">Q-Learning 实现</div>
+        <div class="milestone-desc">实现 Q-Learning Agent（Q-table、ε-greedy、update 函数）。在环境中训练 5000 轮，绘制累计奖励曲线确认收敛。</div>
+      </div>
+    </div>
+
+    <div class="milestone">
+      <div class="milestone-dot">3</div>
+      <div class="milestone-body">
+        <div class="milestone-title">SARSA 实现</div>
+        <div class="milestone-desc">实现 SARSA Agent（注意 <code>a'</code> 的选择时机——先选 <code>a'</code>，再用 <code>a'</code> 更新，然后将 <code>a'</code> 作为下一步动作执行）。同样训练 5000 轮。</div>
+      </div>
+    </div>
+
+    <div class="milestone">
+      <div class="milestone-dot">4</div>
+      <div class="milestone-body">
+        <div class="milestone-title">可视化系统</div>
+        <div class="milestone-desc">实现四种可视化：网格动画回放、训练曲线对比、Q 值热力图 + 策略箭头、最终轨迹叠加。建议使用 <code>matplotlib</code>，网格动画可用 <code>matplotlib.animation.FuncAnimation</code>。</div>
+      </div>
+    </div>
+
+    <div class="milestone">
+      <div class="milestone-dot">5</div>
+      <div class="milestone-body">
+        <div class="milestone-title">对比分析报告</div>
+        <div class="milestone-desc">撰写 1-2 页的分析文档，用可视化结果作为证据，回答：两个算法的策略有何不同？为什么？调节 ε 或守卫速度后差异如何变化？</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 第八部分：进阶思考 -->
+  <section class="section" id="sec8">
+    <div class="section-num">Section 08 — 进阶实验</div>
+    <h2 class="section-title">完成基础目标后的拓展方向</h2>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-blue"><i class="fas fa-flask"></i></span>
+        实验一：守卫速度的影响
+      </div>
+      <p>将守卫改为"每 2 步移动 1 次"或"每步移动 2 格"，观察 SARSA 与 Q-Learning 差异的变化趋势。思考：当守卫越慢，两者差异越小还是越大？为什么？</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-red"><i class="fas fa-expand"></i></span>
+        实验二：地图尺寸扩展
+      </div>
+      <p>将地图扩展到 10×10 或 12×12，增加更多墙壁和守卫。观察 Q-table 的收敛速度如何变化，思考：表格法的瓶颈在哪里？这为后续 DQN 的学习埋下伏笔。</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="icon icon-gold"><i class="fas fa-random"></i></span>
+        实验三：ε 对策略差异的影响
+      </div>
+      <p>分别用 ε=0.01, 0.1, 0.3 训练两个算法。当 ε 很小时，SARSA 和 Q-Learning 的策略是否趋于一致？这揭示了 on-policy 和 off-policy 差异的根源是什么？</p>
+    </div>
+  </section>
+
+  <!-- 第九部分：项目文件结构 -->
+  <section class="section" id="sec9">
+    <div class="section-num">Section 09 — 项目结构</div>
+    <h2 class="section-title">推荐代码组织</h2>
+
+    <div class="code-block">
+shadow_stealth/
+├── <span class="fn">env.py</span>            <span class="cm"># ShadowEnv 环境类</span>
+├── <span class="fn">agents.py</span>         <span class="cm"># QLearningAgent, SARSAAgent</span>
+├── <span class="fn">train.py</span>          <span class="cm"># 训练循环，记录日志</span>
+├── <span class="fn">visualize.py</span>      <span class="cm"># 四种可视化函数</span>
+├── <span class="fn">main.py</span>           <span class="cm"># 入口：训练 + 可视化 + 对比</span>
+├── <span class="fn">config.py</span>         <span class="cm"># 超参数、地图定义</span>
+└── README.md        <span class="cm"># 项目说明与分析报告</span>
+    </div>
+  </section>
+
+</div>
+
+<!-- ===== 底部 ===== -->
+<footer class="footer">
+  <p>暗影潜行 — SARSA vs Q-Learning 强化学习对比项目 · 专为算法理解而设计</p>
+</footer>
+
+<script>
+/* ===== 地图数据 ===== */
+// W=墙壁, F=地板, S=起点, G=宝藏, P=守卫巡逻区
+const MAP = [
+  ['W','W','W','W','W','W','W','W'],
+  ['W','S','F','F','W','F','F','W'],
+  ['W','F','W','F','P','F','F','W'],
+  ['W','F','W','F','P','F','F','W'],
+  ['W','F','F','F','P','F','W','W'],
+  ['W','W','F','F','P','F','F','W'],
+  ['W','P','P','P','P','P','P','W'],  // 守卫B巡逻路线：r=6, c=1..6
+  ['W','W','W','W','W','W','G','W'],
+];
+
+/* ===== 渲染地图预览 ===== */
+const mapPreview = document.getElementById('mapPreview');
+MAP.forEach((row, r) => {
+  row.forEach((cell, c) => {
+    const div = document.createElement('div');
+    let type = 'F';
+    if (cell === 'W') type = 'W';
+    else if (cell === 'S') type = 'S';
+    else if (cell === 'G') type = 'G';
+    else if (cell === 'P') type = 'P';
+    div.className = `map-cell ${type}`;
+    div.title = `(${r},${c}) = ${cell}`;
+    div.textContent = cell;
+    mapPreview.appendChild(div);
+  });
+});
+
+/* ===== Hero 小地图动画 ===== */
+const minimapGrid = document.getElementById('minimapGrid');
+const minimapCells = [];
+
+// 简化的8x8地图，0=空, 1=墙
+const MINIMAP = [
+  [1,1,1,1,1,1,1,1],
+  [1,0,0,0,1,0,0,1],
+  [1,0,1,0,0,0,0,1],
+  [1,0,1,0,0,0,0,1],
+  [1,0,0,0,0,0,1,1],
+  [1,1,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,1],
+  [1,1,1,1,1,1,0,1],
+];
+
+for (let r = 0; r < 8; r++) {
+  for (let c = 0; c < 8; c++) {
+    const cell = document.createElement('div');
+    cell.className = 'minimap-cell';
+    if (MINIMAP[r][c] === 1) cell.classList.add('wall');
+    else cell.classList.add('floor');
+    minimapGrid.appendChild(cell);
+    minimapCells.push({ el: cell, r, c, isWall: MINIMAP[r][c] === 1 });
+  }
+}
+
+// 守卫A: 第5列 c=4, (2,4)↔(5,4) 纵向巡逻
+// 守卫B: 第7行 r=6, (6,1)↔(6,6) 横向巡逻
+// Agent: 起点(1,1)
+let agentR = 1, agentC = 1;
+let guardAR = 2, guardAC = 4, guardADir = 1; // 纵向
+let guardBR = 6, guardBC = 1, guardBDir = 1; // 横向
+
+function updateMinimap() {
+  // 清除所有动态类
+  minimapCells.forEach(({ el, isWall }) => {
+    if (!isWall) {
+      el.className = 'minimap-cell floor';
+    }
+  });
+
+  // 设置守卫A
+  const gAIdx = guardAR * 8 + guardAC;
+  if (minimapCells[gAIdx] && !minimapCells[gAIdx].isWall) {
+    minimapCells[gAIdx].el.className = 'minimap-cell guard';
+  }
+
+  // 设置守卫B
+  const gBIdx = guardBR * 8 + guardBC;
+  if (minimapCells[gBIdx] && !minimapCells[gBIdx].isWall) {
+    minimapCells[gBIdx].el.className = 'minimap-cell guard';
+  }
+
+  // 设置目标
+  const goalIdx = 7 * 8 + 6;
+  minimapCells[goalIdx].el.className = 'minimap-cell goal';
+
+  // 设置Agent
+  const aIdx = agentR * 8 + agentC;
+  if (minimapCells[aIdx] && !minimapCells[aIdx].isWall) {
+    minimapCells[aIdx].el.className = 'minimap-cell agent';
+  }
+}
+
+// 简单的随机游走Agent（模拟探索）
+let stepCount = 0;
+function minimapStep() {
+  stepCount++;
+
+  // Agent 随机移动（偏向目标方向）
+  const moves = [[-1,0],[0,1],[1,0],[0,-1]];
+  if (Math.random() < 0.4) {
+    // 40%概率向目标方向
+    const dr = 7 - agentR > 0 ? 1 : (7 - agentR < 0 ? -1 : 0);
+    const dc = 6 - agentC > 0 ? 1 : (6 - agentC < 0 ? -1 : 0);
+    if (Math.random() < 0.5 && dr !== 0) {
+      agentR += dr;
+    } else if (dc !== 0) {
+      agentC += dc;
+    }
+  } else {
+    const m = moves[Math.floor(Math.random() * 4)];
+    agentR += m[0];
+    agentC += m[1];
+  }
+
+  // 边界和墙壁检查：碰墙停留原位，而不是回起点
+  const prevR = agentR, prevC = agentC;
+  agentR = Math.max(0, Math.min(7, agentR));
+  agentC = Math.max(0, Math.min(7, agentC));
+  if (MINIMAP[agentR][agentC] === 1) {
+    agentR = prevR; agentC = prevC;
+  }
+
+  // 到达目标则重置
+  if (agentR === 7 && agentC === 6) {
+    agentR = 1; agentC = 1;
+  }
+
+  // 守卫A巡逻
+  guardAR += guardADir;
+  if (guardAR >= 5) { guardAR = 5; guardADir = -1; }
+  if (guardAR <= 2) { guardAR = 2; guardADir = 1; }
+
+  // 守卫B巡逻
+  guardBC += guardBDir;
+  if (guardBC >= 6) { guardBC = 6; guardBDir = -1; }
+  if (guardBC <= 1) { guardBC = 1; guardBDir = 1; }
+
+  // Agent被抓则重置
+  if ((agentR === guardAR && agentC === guardAC) ||
+      (agentR === guardBR && agentC === guardBC)) {
+    agentR = 1; agentC = 1;
+  }
+
+  updateMinimap();
+}
+
+setInterval(minimapStep, 500);
+updateMinimap();
+
+/* ===== 滚动动画 ===== */
+const sections = document.querySelectorAll('.section');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+sections.forEach(sec => observer.observe(sec));
+
+/* ===== 浮动粒子 ===== */
+const hero = document.querySelector('.hero');
+function createParticle() {
+  const p = document.createElement('div');
+  p.className = 'particle';
+  const size = Math.random() * 3 + 1;
+  const x = Math.random() * 100;
+  const duration = Math.random() * 8 + 6;
+  const delay = Math.random() * 4;
+  const color = Math.random() > 0.5 ? 'var(--accent)' : 'var(--accent2)';
+
+  p.style.cssText = `
+    width: ${size}px; height: ${size}px;
+    left: ${x}%; bottom: -10px;
+    background: ${color};
+    box-shadow: 0 0 ${size * 3}px ${color};
+    animation-duration: ${duration}s;
+    animation-delay: ${delay}s;
+    opacity: 0;
+  `;
+  hero.appendChild(p);
+
+  setTimeout(() => p.remove(), (duration + delay) * 1000);
+}
+
+setInterval(createParticle, 600);
+
+/* ===== 地图格子点击提示 ===== */
+mapPreview.addEventListener('click', (e) => {
+  const cell = e.target.closest('.map-cell');
+  if (cell && cell.title) {
+    // 简单的视觉反馈
+    cell.style.transform = 'scale(1.2)';
+    cell.style.boxShadow = '0 0 12px var(--accent)';
+    setTimeout(() => {
+      cell.style.transform = '';
+      cell.style.boxShadow = '';
+    }, 400);
+  }
+});
+</script>
+
+</body>
+</html>
