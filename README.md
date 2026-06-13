@@ -3,6 +3,12 @@
 这是一个带移动守卫的网格世界强化学习项目，用于研究和对比
 SARSA（On-Policy）与 Q-Learning（Off-Policy）的策略差异。
 
+## 在线任务书
+
+[点击查看完整渲染页面](https://bengoooo.github.io/SARSA_QL_BreakThrough/)
+
+[![暗影潜行项目任务书预览](docs/preview.png)](https://bengoooo.github.io/SARSA_QL_BreakThrough/)
+
 当前仓库已经实现：
 
 - 可移动守卫、障碍物、终点与碰撞判定
@@ -12,7 +18,7 @@ SARSA（On-Policy）与 Q-Learning（Off-Policy）的策略差异。
 - 环境和智能体的基础检查脚本
 
 SARSA、训练指标可视化及完整算法对比仍在后续开发范围内。详细设计见
-[项目规划书](docs/project-plan.html)。
+[在线项目规划书](https://bengoooo.github.io/SARSA_QL_BreakThrough/)。
 
 ## 项目结构
 
@@ -23,7 +29,8 @@ SARSA、训练指标可视化及完整算法对比仍在后续开发范围内。
 ├── envs/
 │   └── breakthrough_env.py   # 网格环境、守卫移动和奖励逻辑
 ├── docs/
-│   └── project-plan.html     # 项目规划与实验设计
+│   ├── index.html            # GitHub Pages 项目规划页面
+│   └── preview.png           # README 页面预览图
 ├── check_agent.py            # 智能体功能检查
 ├── check_env.py              # 环境功能检查
 ├── train_q_learning.py       # Q-Learning 训练入口
