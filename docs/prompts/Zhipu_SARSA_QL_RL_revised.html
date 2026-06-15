@@ -357,17 +357,17 @@
   @media (max-width: 1200px) {
     .hero {
       grid-template-columns: minmax(0, 680px);
+      text-align: center;
     }
     .hero-minimap { display: none; }
+    .hero-subtitle { margin-inline: auto; }
+    .hero-tags { justify-content: center; }
   }
   @media (max-width: 640px) {
     .compare-grid { grid-template-columns: 1fr; }
     .hero {
       padding-inline: 1.25rem;
-      text-align: center;
     }
-    .hero-subtitle { margin-inline: auto; }
-    .hero-tags { justify-content: center; }
   }
   .compare-card {
     background: var(--card);
